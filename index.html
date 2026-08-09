@@ -3276,97 +3276,6 @@ TOPICS.push(bookVocabTopic({
   lead:'Wähle die Unité oder übe mit «Alle Teile» übergreifend. Im Wortschatz kannst du dir Wörter mit ☆ selbst als Kernwortschatz markieren. Karteikarten zum Einprägen, Üben zum Festigen, Lückensätze zum Anwenden – und im Reiter «Prüfung» ein Vokabeltest mit frei wählbarer Wortzahl.'
 }));
 
-TOPICS.push(vocabTopic({
-  id:'fr-mots',subject:'franz',emoji:'🗣️',title:'Vocabulaire · Wörter lernen',color:'#7A4DA8',
-  foreign:'Französisch',
-  short:'Begrüssen, Schule, Familie, Zahlen & Zeit – Wort für Wort.',
-  lead:'Accents zählen: Wenn nur ein Akzent fehlt, gilt die Antwort als richtig – die korrekte Schreibweise wird dir dann angezeigt.',
-  units:[
-    {id:'saluer',label:'Se saluer',words:[
-      ['bonjour','guten Tag'],['salut','hallo / tschüss'],['au revoir','auf Wiedersehen'],
-      ['merci','danke'],["s'il te plaît",'bitte'],['ça va ?','wie geht es dir?'],
-      ['oui','ja'],['non','nein'],["comment tu t'appelles ?",'wie heisst du?'],['à demain','bis morgen']]},
-    {id:'ecole',label:"L'école",words:[
-      ['le crayon','der Bleistift'],['la gomme','der Radiergummi'],['le cahier','das Heft'],
-      ['le livre','das Buch'],['la règle','das Lineal'],['les ciseaux','die Schere'],
-      ['la trousse','das Etui'],['le stylo','der Kugelschreiber'],['la classe','die Klasse'],
-      ['la récréation','die Pause']]},
-    {id:'famille',label:'La famille & les couleurs',words:[
-      ['la mère','die Mutter'],['le père','der Vater'],['la sœur','die Schwester'],
-      ['le frère','der Bruder'],['les grands-parents','die Grosseltern'],['rouge','rot'],
-      ['bleu','blau'],['vert','grün'],['jaune','gelb'],['noir','schwarz']]},
-    {id:'temps',label:'Les nombres & le temps',words:[
-      ['quinze','fünfzehn'],['vingt','zwanzig'],['trente','dreissig'],['lundi','Montag'],
-      ['samedi','Samstag'],["aujourd'hui",'heute'],['demain','morgen'],["l'hiver",'der Winter'],
-      ["l'été",'der Sommer'],['la semaine','die Woche']]}
-  ]
-}));
-
-TOPICS.push(quizTopic({
-  id:'de-sprache',subject:'deutsch',emoji:'✏️',title:'Wortarten & Rechtschreibung',color:'#B4531B',
-  short:'Nomen, Verben, Adjektive erkennen – und richtig schreiben.',
-  lead:'Wähle einen Bereich. «Auswählen» ist einfacher, «Tippen» anspruchsvoller.',
-  pdfIntro:'Beantworte die Fragen. Schreibe die Antwort auf die Linie.',
-  units:[
-    {id:'wortarten',label:'Wortarten',
-     question:w=>`Welche Wortart ist «${w}»?`,
-     choices:['Nomen','Verb','Adjektiv'],
-     pairs:[['Baum','Nomen'],['laufen','Verb'],['schnell','Adjektiv'],['Freundschaft','Nomen'],
-            ['singen','Verb'],['freundlich','Adjektiv'],['Schule','Nomen'],['denken','Verb'],
-            ['mutig','Adjektiv'],['Wetter','Nomen'],['schreiben','Verb'],['leise','Adjektiv']]},
-    {id:'gross',label:'Gross- und Kleinschreibung',
-     questions:[
-      {q:'Was schreibt man in «wir gehen ins kino» gross?',a:'Wir, Kino',options:['Wir, Kino','nur Kino','nur Wir','gar nichts'],hint:'Satzanfang und Nomen'},
-      {q:'Welches Wort ist ein Nomen und wird grossgeschrieben: «das laufen fällt mir leicht»?',a:'Laufen',options:['Laufen','fällt','leicht','mir']},
-      {q:'Wie schreibt man es richtig?',a:'am Abend',options:['am Abend','am abend','Am abend','aM Abend']},
-      {q:'Welche Schreibweise stimmt?',a:'heute Morgen',options:['heute Morgen','Heute morgen','heute morgen','Heute Morgen']},
-      {q:'Nach welchem Signalwort steht meistens ein Nomen?',a:'der / die / das',options:['der / die / das','und','sehr','schnell']},
-      {q:'Wie schreibt man das Zahlwort in «wir sind zu dritt»?',a:'klein',options:['klein','gross','mit Bindestrich','in Grossbuchstaben']}]},
-    {id:'zeiten',label:'Zeitformen',
-     questions:[
-      {q:'In welcher Zeitform steht «ich ging»?',a:'Präteritum',options:['Präteritum','Präsens','Futur','Perfekt']},
-      {q:'In welcher Zeitform steht «ich bin gegangen»?',a:'Perfekt',options:['Perfekt','Präsens','Präteritum','Futur']},
-      {q:'In welcher Zeitform steht «ich werde gehen»?',a:'Futur',options:['Futur','Perfekt','Präteritum','Präsens']},
-      {q:'Wie lautet die Grundform (Infinitiv) von «lief»?',a:'laufen',options:['laufen','läuft','gelaufen','lauft']},
-      {q:'Wie lautet das Perfekt von «schreiben» (ich …)?',a:'habe geschrieben',options:['habe geschrieben','bin geschrieben','werde schreiben','schrieb']},
-      {q:'Wie lautet das Präteritum von «sein» (ich …)?',a:'war',options:['war','bin','gewesen','werde sein']}]}
-  ]
-}));
-
-TOPICS.push(quizTopic({
-  id:'nmg-schweiz',subject:'nmg',emoji:'🏔️',title:'Schweiz, Natur & Körper',color:'#3EB489',
-  short:'Kantone, Landschaften, Tiere und der menschliche Körper.',
-  lead:'Drei Bereiche zum Entdecken. Im Merkblatt findest du alle Antworten zum Nachlesen.',
-  pdfIntro:'Beantworte die Fragen. Schreibe die Antwort auf die Linie.',
-  units:[
-    {id:'kantone',label:'Kantone & Hauptorte',
-     question:(k)=>`Wie heisst der Hauptort des Kantons ${k}?`,
-     pairs:[['Aargau','Aarau'],['Wallis','Sitten'],['Graubünden','Chur'],['Tessin','Bellinzona'],
-            ['Thurgau','Frauenfeld'],['Waadt','Lausanne'],['Solothurn','Solothurn'],['Uri','Altdorf'],
-            ['Freiburg','Freiburg'],['Schaffhausen','Schaffhausen'],['Glarus','Glarus'],['Zug','Zug']]},
-    {id:'natur',label:'Natur & Landschaft',
-     questions:[
-      {q:'Wie heisst der höchste Berg der Schweiz?',a:'Dufourspitze',options:['Dufourspitze','Matterhorn','Jungfrau','Piz Bernina']},
-      {q:'Welcher See liegt vollständig in der Schweiz und ist der grösste davon?',a:'Neuenburgersee',options:['Neuenburgersee','Bodensee','Genfersee','Zürichsee']},
-      {q:'In welches Meer fliesst der Rhein?',a:'Nordsee',options:['Nordsee','Mittelmeer','Schwarzes Meer','Ostsee']},
-      {q:'Welcher Baum verliert im Herbst seine Nadeln?',a:'Lärche',options:['Lärche','Fichte','Tanne','Föhre']},
-      {q:'Wie viele Beine hat ein Insekt?',a:'6',options:['6','4','8','10']},
-      {q:'Welches dieser Tiere ist ein Säugetier?',a:'Fledermaus',options:['Fledermaus','Forelle','Kröte','Amsel']},
-      {q:'Wie nennt man den Winterschlaf-ähnlichen Zustand von Igeln?',a:'Winterschlaf',options:['Winterschlaf','Winterruhe','Winterstarre','Sommerpause']},
-      {q:'Was passiert im Wasserkreislauf zuerst?',a:'Verdunstung',options:['Verdunstung','Niederschlag','Versickerung','Kondensation']},
-      {q:'Wie viele Landessprachen hat die Schweiz?',a:'4',options:['4','2','3','5']},
-      {q:'Welches Gebirge liegt im Nordwesten der Schweiz?',a:'Jura',options:['Jura','Alpen','Vogesen','Schwarzwald']}]},
-    {id:'koerper',label:'Der menschliche Körper',
-     questions:[
-      {q:'Welches Organ pumpt das Blut durch den Körper?',a:'Herz',options:['Herz','Lunge','Leber','Niere']},
-      {q:'Wo wird der Sauerstoff aus der Luft ins Blut aufgenommen?',a:'in der Lunge',options:['in der Lunge','im Magen','im Herz','in der Leber']},
-      {q:'Wie viele Knochen hat ein erwachsener Mensch ungefähr?',a:'206',options:['206','106','306','406']},
-      {q:'Welcher Teil des Körpers schützt das Gehirn?',a:'Schädel',options:['Schädel','Brustkorb','Becken','Wirbelsäule']},
-      {q:'Womit beginnt die Verdauung?',a:'im Mund',options:['im Mund','im Magen','im Darm','in der Speiseröhre']},
-      {q:'Wie heisst das grösste Organ des Menschen?',a:'Haut',options:['Haut','Leber','Lunge','Darm']}]}
-  ]
-}));
-
 /* Wandelt eine {html,answer}-Aufgabe in reinen Text (Aufgabe/Lösung) um. */
 function stripTask(html,answer){
   const q=html.replace(/<[^>]+>/g,'').replace(/\?/g,'____').replace(/\s+/g,' ').trim();
@@ -3609,8 +3518,6 @@ function buildTheoryPanel(host,topic){
 
 /* Kacheln für geplante, noch nicht umgesetzte Themen (rein optisch). */
 const SOON=[
-  {subject:'mathe',  emoji:'➕',title:'Plus & Minus',      short:'Kopfrechnen mit grösseren Zahlen.'},
-  {subject:'mathe',  emoji:'📐',title:'Runden & Schätzen', short:'Zahlen runden und clever überschlagen.'},
   {subject:'deutsch',emoji:'📖',title:'Lesen & Verstehen', short:'Texte erschliessen und Fragen beantworten.'},
   {subject:'nmg',    emoji:'⏳',title:'Geschichte Schweiz', short:'Von den Pfahlbauern bis heute.'}
 ];
