@@ -1166,6 +1166,111 @@ const PRAISE=['Super!','Stark!','Perfekt!','Genau!','Klasse!','Toll gemacht!','W
 ------------------------------------------------------------ */
 function normAns(v){return String(v).trim().toLowerCase().replace(/\s+/g,' ').replace(/[.!?;]+$/,'').replace(/\u2019/g,"'");}
 function deacc(v){return v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ß/g,'ss');}
+const CONTRACTIONS=[
+  ["can't","cannot"],["won't","will not"],
+  ["don't","do not"],["doesn't","does not"],["didn't","did not"],
+  ["couldn't","could not"],["wouldn't","would not"],["shouldn't","should not"],
+  ["isn't","is not"],["aren't","are not"],["wasn't","was not"],["weren't","were not"],
+  ["haven't","have not"],["hasn't","has not"],["hadn't","had not"],
+  ["mustn't","must not"],["let's","let us"],
+  ["i'm","i am"],["you're","you are"],["he's","he is"],["she's","she is"],["it's","it is"],
+  ["we're","we are"],["they're","they are"],
+  ["i've","i have"],["you've","you have"],["we've","we have"],["they've","they have"],
+  ["i'll","i will"],["you'll","you will"],["he'll","he will"],["she'll","she will"],
+  ["we'll","we will"],["they'll","they will"],
+  ["i'd","i would"],["you'd","you would"],["he'd","he would"],["she'd","she would"],
+  ["we'd","we would"],["they'd","they would"]
+];
+function expandContractions(s){
+  let out=' '+s+' ';
+  CONTRACTIONS.forEach(function(pair){
+    const pat=pair[0].replace(/'/g,"['’]?");
+    out=out.replace(new RegExp('\\b'+pat+'\\b','g'),' '+pair[1]+' ');
+  });
+  return out.replace(/\s+/g,' ').trim();
+}
+const SPELLVAR=[
+  ["colour","color"],["colours","colors"],["colourful","colorful"],
+  ["favourite","favorite"],["favourites","favorites"],["favour","favor"],["favours","favors"],
+  ["neighbour","neighbor"],["neighbours","neighbors"],
+  ["honour","honor"],["humour","humor"],
+  ["centre","center"],["centres","centers"],
+  ["theatre","theater"],["theatres","theaters"],
+  ["metre","meter"],["metres","meters"],
+  ["litre","liter"],["litres","liters"],
+  ["fibre","fiber"],
+  ["grey","gray"],
+  ["organise","organize"],["organised","organized"],["organising","organizing"],
+  ["realise","realize"],["realised","realized"],["realising","realizing"],
+  ["recognise","recognize"],["recognised","recognized"],
+  ["apologise","apologize"],["apologised","apologized"],
+  ["travelling","traveling"],["traveller","traveler"],["travellers","travelers"],
+  ["cancelled","canceled"],["cancelling","canceling"],
+  ["modelling","modeling"],["signalling","signaling"],
+  ["jewellery","jewelry"],
+  ["programme","program"],["programmes","programs"],
+  ["practise","practice"],["licence","license"],
+  ["defence","defense"],["offence","offense"],
+  ["tyre","tire"],["tyres","tires"],
+  ["mum","mom"],["mummy","mommy"],
+  ["aeroplane","airplane"],["pyjamas","pajamas"],["dreamt","dreamed"],["learnt","learned"]
+];
+const SPELLVAR_MAP=(function(){const m={};SPELLVAR.forEach(function(p){m[p[0]]=p[0];m[p[1]]=p[0];});return m;})();
+function expandSpellvar(s){
+  return s.split(/\b/).map(function(tok){
+    const low=tok.toLowerCase();
+    return SPELLVAR_MAP.hasOwnProperty(low)?SPELLVAR_MAP[low]:tok;
+  }).join('');
+}
+const FILLERS=/\b(sich|etw|jdn|sb|sth)\b/g;
+function normLoose(v){
+  let s=String(v).toLowerCase();
+  s=s.replace(/\([^)]*\)/g,' ');
+  s=expandContractions(s);
+  s=expandSpellvar(s);
+  s=s.replace(/[-–—.,;:!?'’"„“]/g,' ');
+  s=s.replace(/\s+/g,' ').trim();
+  s=s.replace(FILLERS,' ').replace(/\s+/g,' ').trim();
+  s=s.replace(ARTICLES,'').trim();
+  return s;
+}
+function normTight(v){return normLoose(v).replace(/\s+/g,'');}
+function levD(a,b){
+  const al=a.length,bl=b.length,d=[];
+  for(let i=0;i<=al;i++)d[i]=[i];
+  for(let j=0;j<=bl;j++)d[0][j]=j;
+  for(let i=1;i<=al;i++){
+    for(let j=1;j<=bl;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+cost);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])d[i][j]=Math.min(d[i][j],d[i-2][j-2]+cost);
+    }
+  }
+  return d[al][bl];
+}
+function typoBudget(len){return len<=5?0:len<=11?1:len<=17?2:3;}
+function wordTypoOK(g,a){
+  if(g===a)return true;
+  if(!g||!a)return false;
+  const len=Math.max(g.length,a.length),budget=typoBudget(len);
+  if(budget===0)return false;
+  if(len<=7&&g.charAt(0)!==a.charAt(0))return false;
+  return levD(g,a)<=budget;
+}
+function tokenTypoOK(gTokens,aTokens){
+  if(gTokens.length!==aTokens.length||gTokens.length===0)return false;
+  for(let i=0;i<gTokens.length;i++)if(!wordTypoOK(gTokens[i],aTokens[i]))return false;
+  return true;
+}
+function typoOK(g,a){
+  return tokenTypoOK(g.split(' ').filter(Boolean),a.split(' ').filter(Boolean));
+}
+function lenientMatch(cand,guess){
+  const cl=normLoose(cand),gl=normLoose(guess);
+  if(cl&&gl&&(cl===gl||normTight(cand)===normTight(guess)))return 'ok';
+  if(cl&&gl&&typoOK(gl,cl))return 'near';
+  return null;
+}
 function judge(task,val){
   const ty=task.type||'number';
   if(ty==='number'){
@@ -1178,6 +1283,10 @@ function judge(task,val){
   if(!g)return 'no';
   if(cands.some(c=>normAns(c)===g))return 'ok';
   if(cands.some(c=>deacc(normAns(c))===deacc(g)))return 'near';
+  if(ty==='text'){
+    if(cands.some(c=>lenientMatch(c,val)==='ok'))return 'ok';
+    if(cands.some(c=>lenientMatch(c,val)==='near'))return 'near';
+  }
   return 'no';
 }
 function showAns(task){return (task.type||'number')==='number'?fmtNum(task.answer):(task.display||task.answer);}
