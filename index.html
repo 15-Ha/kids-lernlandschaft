@@ -450,6 +450,8 @@
   .listing th,.listing td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
   .listing th{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-soft);font-weight:800}
   .listing td.b{font-weight:800}
+  .listing tr.core-row td{background:#FFF6D8}
+  .core-toggle{background:none;border:none;cursor:pointer;font-size:17px;line-height:1;padding:2px 4px}
 </style>
 </head>
 <body>
@@ -863,46 +865,62 @@ function toggleSound(){
    statt eine Fehlermeldung zu zeigen.
 ============================================================ */
 const ttsOK=('speechSynthesis' in window)&&(typeof SpeechSynthesisUtterance!=='undefined');
-let ttsVoice=null,ttsVoicesReady=false;
+/* Sprachcode je Fremdsprache (für Stimmenwahl und Ausspracheknopf). */
+const TTS_LOCALE={en:['en-GB','en-US','en'],fr:['fr-FR','fr-CH','fr']};
+const TTS_TITLE={en:'Englisch anhören',fr:'Französisch anhören'};
+let ttsVoices={},ttsVoicesReady=false;
 function ttsPickVoice(){
   if(!ttsOK)return;
   const vs=speechSynthesis.getVoices();
   if(!vs.length)return;
-  ttsVoice=vs.find(v=>/^en-GB/i.test(v.lang))||vs.find(v=>/^en-US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;
+  Object.keys(TTS_LOCALE).forEach(lang=>{
+    const pats=TTS_LOCALE[lang];
+    ttsVoices[lang]=pats.reduce((found,p)=>found||vs.find(v=>new RegExp('^'+p,'i').test(v.lang))||null,null);
+  });
   ttsVoicesReady=true;
-  $$('.spk-btn').forEach(b=>{if(!ttsVoice)b.disabled=true;});
+  $$('.spk-btn').forEach(b=>{if(!ttsVoices[b.dataset.lang||'en'])b.disabled=true;});
 }
 if(ttsOK){
   ttsPickVoice();
   speechSynthesis.addEventListener('voiceschanged',ttsPickVoice);
 }
-/* Spricht einen englischen Begriff. btn (optional) bekommt kurz die
-   Klasse .speaking für eine sichtbare Rückmeldung. */
-function ttsSpeak(text,btn){
+/* Spricht einen fremdsprachigen Begriff (lang: 'en'|'fr'). btn (optional)
+   bekommt kurz die Klasse .speaking für eine sichtbare Rückmeldung. */
+function ttsSpeak(text,btn,lang){
+  lang=lang||'en';
   if(!ttsOK||!text)return;
+  const voice=ttsVoices[lang];
   try{
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(String(text).replace(/\s*\([^)]*\)/g,''));
-    u.lang=ttsVoice?ttsVoice.lang:'en-GB';
-    if(ttsVoice)u.voice=ttsVoice;
+    u.lang=voice?voice.lang:TTS_LOCALE[lang][0];
+    if(voice)u.voice=voice;
     u.rate=0.92;u.pitch=1;
     if(btn){btn.classList.add('speaking');u.onend=u.onerror=()=>btn.classList.remove('speaking');}
     speechSynthesis.speak(u);
   }catch(e){/* Wiedergabe auf diesem Gerät nicht möglich – Knopf bleibt ohne Effekt */}
 }
-/* Baut einen fertigen Lautsprecher-Knopf für ein englisches Wort.
-   Ist auf dem Gerät keine Stimme verfügbar, wird der Knopf deaktiviert
-   statt versteckt – so bleibt sichtbar, dass die Funktion existiert. */
-function ttsBtn(text,title){
+/* Baut einen fertigen Lautsprecher-Knopf für ein fremdsprachiges Wort.
+   Ist auf dem Gerät keine passende Stimme verfügbar, wird der Knopf
+   deaktiviert statt versteckt – so bleibt sichtbar, dass die Funktion
+   existiert. */
+function ttsBtn(text,title,lang){
+  lang=lang||'en';
   const b=document.createElement('button');
   b.type='button';b.className='spk-btn';b.innerHTML='🔊';
-  b.title=title||'Englisch anhören';b.setAttribute('aria-label',b.title);
-  if(!ttsOK)b.disabled=true;
-  b.addEventListener('click',e=>{e.stopPropagation();ttsSpeak(text,b);});
+  b.dataset.lang=lang;
+  b.title=title||TTS_TITLE[lang]||TTS_TITLE.en;b.setAttribute('aria-label',b.title);
+  if(!ttsOK||(ttsVoicesReady&&!ttsVoices[lang]))b.disabled=true;
+  b.addEventListener('click',e=>{e.stopPropagation();ttsSpeak(text,b,lang);});
   return b;
 }
 function ttsAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');}
-function ttsBtnHTML(text){return `<button type="button" class="spk-btn" data-tts="${ttsAttr(text)}" ${ttsOK?'':'disabled'} title="Englisch anhören" aria-label="Englisch anhören">🔊</button>`;}
+function ttsBtnHTML(text,lang){
+  lang=lang||'en';
+  const title=TTS_TITLE[lang]||TTS_TITLE.en;
+  const dis=(!ttsOK||(ttsVoicesReady&&!ttsVoices[lang]))?'disabled':'';
+  return `<button type="button" class="spk-btn" data-tts="${ttsAttr(text)}" data-lang="${lang}" ${dis} title="${title}" aria-label="${title}">🔊</button>`;
+}
 
 /* Maskottchen entwickelt sich mit dem Level weiter (nur optische Spielerei) */
 function mascotFor(lvl){return lvl<3?'🚀':lvl<6?'🛸':lvl<10?'🌠':'👑';}
@@ -1331,7 +1349,7 @@ function buildArena(cfg){
     cur=cfg.makeTask(state,lastKey);lastKey=cur.key;
     el('task').innerHTML=cur.html;
     const tb=el('task').querySelector('[data-tts]');
-    if(tb)tb.addEventListener('click',ev=>{ev.stopPropagation();ttsSpeak(tb.dataset.tts,tb);});
+    if(tb)tb.addEventListener('click',ev=>{ev.stopPropagation();ttsSpeak(tb.dataset.tts,tb,tb.dataset.lang);});
     el('hint').textContent=blitzOn?'':(cur.hint||'');
     el('fb').className='feedback';
     const t=ty();
@@ -1556,7 +1574,9 @@ const ARTICLES=/^(der|die|das|den|dem|des|ein|eine|einen|einem|to|the|a|an|le|la
    (Teil + -er/-r/-st/-est) nur dann, wenn auch die Gegenseite eine
    Aufzählung ist – sonst würden Paare wie «Ladenangestellte,
    Ladenangestellter» fälschlich mitgezählt. Unregelmässiges: VT_FORMS. */
-const VT_FORMS=['good, better','gut, besser'];
+const VT_FORMS=['good, better','gut, besser',
+  "il est, elle est",'er ist, sie ist',
+  "il s'appelle, elle s'appelle",'er heisst, sie heisst'];
 function hasList(v){return String(v||'').indexOf(',')>=0;}
 function isSuffixList(v){
   const t=String(v||'').trim();
@@ -2525,14 +2545,249 @@ const YW_BOOKS=[
   ]}
 ];
 
+/* ------------------------------------------------------------
+   Vocabulaire (Französisch) – Lehrmittel «Dis donc! 5», Unités 1–4.
+   Aus dem Vokabelheft abgeschrieben (Vocabulaire + Vocabulaire plus).
+   Alle Wörter starten gleich gewichtet; Kernwortschatz wird nicht aus dem
+   Heft übernommen, sondern von den Lernenden selbst in der Wortschatzliste
+   markiert (☆/⭐-Knopf, siehe vtLoadCore()/vtSaveCore()). Zwei
+   Instruktionssätze mit eingebetteter «/»-Variante wurden auf eine
+   Variante vereinfacht, weil der Kulanz-Vergleich «/» als Trennzeichen
+   für ganze Alternativantworten verwendet.
+------------------------------------------------------------ */
+const FR_BOOKS=[
+  {id:'dd5',label:'Dis donc ! 5',short:'DD5',units:[
+    {id:'u1',label:'Unité 1',title:'Unité 1 · Rentrée & matériel scolaire',words:[
+      ['Chouette, c’est la rentrée !','Toll, es ist Schulanfang!'],
+      ['Zut, c’est la rentrée !','Oje, es ist Schulanfang!'],
+      ['le livre','das Buch'],
+      ['la règle','das Lineal'],
+      ['le classeur','der Ordner'],
+      ['le cahier','das Heft'],
+      ['le crayon','der Bleistift'],
+      ['le stylo','der Kugelschreiber'],
+      ['la gomme','der Gummi'],
+      ['le tableau noir','die Wandtafel'],
+      ['la trousse','das Etui'],
+      ['la table','der Tisch'],
+      ['la chaise','der Stuhl'],
+      ['la matière scolaire','das Schulfach'],
+      ["l'allemand",'Deutsch'],
+      ['le français','Französisch'],
+      ["l'anglais",'Englisch'],
+      ['les maths, les mathématiques','Mathematik'],
+      ['les jours de la semaine','die Wochentage'],
+      ['lundi','Montag'],
+      ['mardi','Dienstag'],
+      ['mercredi','Mittwoch'],
+      ['jeudi','Donnerstag'],
+      ['vendredi','Freitag'],
+      ['samedi','Samstag'],
+      ['dimanche','Sonntag'],
+      ['une école','eine Schule'],
+      ['calculer','rechnen'],
+      ['dessiner','zeichnen'],
+      ['chanter','singen'],
+      ['expérimenter','experimentieren'],
+      ['parler français','Französisch sprechen'],
+      ['le cartable','die Schultasche'],
+      ['un agenda','eine Agenda'],
+      ['les ciseaux','die Schere'],
+      ['le dessin','das bildnerische Gestalten, die Zeichnung'],
+      ['la géo, la géographie','die Geografie'],
+      ["l'histoire",'die Geschichte'],
+      ['la gym, la gymnastique','das Turnen'],
+      ['les sciences de la nature','die Naturwissenschaften'],
+      ['la musique','die Musik'],
+      ['ACM (activités créatrices manuelles)','Handarbeit und Werken'],
+      ['parler anglais','Englisch sprechen'],
+      ["explorer l'étranger",'das Ausland erkunden'],
+      ['visiter un musée','ein Museum besuchen'],
+      ['tricoter','stricken'],
+      ['réciter un poème','ein Gedicht aufsagen'],
+      ['bricoler','basteln'],
+      ['sauter','springen, hüpfen'],
+      ['grimper','klettern']]},
+    {id:'u2',label:'Unité 2',title:'Unité 2 · La famille',words:[
+      ['la famille','die Familie'],
+      ['un enfant','ein Kind'],
+      ['la mère, la maman','die Mutter'],
+      ['le père, le papa','der Vater'],
+      ['les parents','die Eltern'],
+      ['la sœur','die Schwester'],
+      ['le frère','der Bruder'],
+      ['la grand-mère','die Grossmutter'],
+      ['le grand-père','der Grossvater'],
+      ['les grands-parents','die Grosseltern'],
+      ['la tante','die Tante'],
+      ['un oncle','ein Onkel'],
+      ['la cousine','die Cousine'],
+      ['le cousin','der Cousin'],
+      ['le bébé','das Baby, das Kleinkind'],
+      ['la fille','die Tochter, das Mädchen'],
+      ['le fils','der Sohn'],
+      ['voici, voilà','hier ist, da ist'],
+      ['il est, elle est','er ist, sie ist'],
+      ['Lionel est le frère de Nathalie.','Lionel ist der Bruder von Nathalie.'],
+      ['ils sont, elles sont','sie sind'],
+      ["c'est",'das ist'],
+      ["C'est ma famille.",'Das ist meine Familie.'],
+      ['ce sont','das sind'],
+      ['Ce sont mes grands-parents.','Das sind meine Grosseltern.'],
+      ['qui ?','wer?'],
+      ["il s'appelle, elle s'appelle",'er heisst, sie heisst'],
+      ["ils s'appellent, elles s'appellent",'sie heissen'],
+      ['la fiche personnelle','der Steckbrief'],
+      ['le nom','der Name'],
+      ['le prénom','der Vorname'],
+      ['la langue','die Sprache'],
+      ['Je parle allemand, français et anglais.','Ich spreche Deutsch, Französisch und Englisch.'],
+      ['un acteur','ein Schauspieler'],
+      ['le cinéma muet','der Stummfilm'],
+      ['marié/mariée','verheiratet'],
+      ['onze','elf'],
+      ['le petit-fils','der Enkel'],
+      ['la petite-fille','die Enkelin'],
+      ['le chien','der Hund'],
+      ['le chat','die Katze'],
+      ['le membre de la famille','das Familienmitglied'],
+      ['un arbre généalogique','ein Stammbaum'],
+      ['le sexe','das Geschlecht'],
+      ["l'âge",'das Alter'],
+      ['une adresse','eine Adresse'],
+      ['le pays','das Land'],
+      ['la signature','die Unterschrift'],
+      ['le néerlandais','Niederländisch'],
+      ['le suédois','Schwedisch'],
+      ["l'italien",'Italienisch'],
+      ["l'espagnol",'Spanisch'],
+      ['le drapeau','die Fahne']]},
+    {id:'u3',label:'Unité 3',title:'Unité 3 · Loisirs & hobbys',words:[
+      ['le loisir','die Freizeitbeschäftigung'],
+      ['un ordinateur','ein Computer'],
+      ['la télé','der Fernseher'],
+      ['la console','die Spielkonsole'],
+      ['lire','lesen'],
+      ['le foot, faire du foot','Fussball (Spiel), Fussball spielen'],
+      ['le vélo','das Velo, das Fahrrad'],
+      ['le ski','der Ski'],
+      ["l'unihockey, faire de l'unihockey",'das Unihockey, Unihockey spielen'],
+      ['danser','tanzen'],
+      ['nager','schwimmen'],
+      ['la guitare, jouer de la guitare','die Gitarre, Gitarre spielen'],
+      ['la flûte','die Flöte'],
+      ['le piano, jouer du piano','das Klavier, Klavier spielen'],
+      ['jouer dehors','draussen spielen'],
+      ['un animal, les animaux','ein Tier, die Tiere'],
+      ['le bricolage','das Basteln'],
+      ['écouter de la musique','Musik hören'],
+      ['faire la cuisine','kochen'],
+      ['faire du shopping','shoppen'],
+      ['rencontrer des amis','Freunde treffen'],
+      ['rencontrer des amies','Freundinnen treffen'],
+      ["aimer, j'aime",'lieben, ich liebe'],
+      ["adorer, j'adore",'sehr gerne haben, ich habe sehr gerne'],
+      ['ma passion, c’est...','meine Leidenschaft ist ...'],
+      ['je suis fan de...','ich bin Fan von ...'],
+      ['mon hobby, c’est...','mein Hobby ist ...'],
+      ['le nombre','die Zahl'],
+      ['un élève','ein Schüler, eine Schülerin'],
+      ['le garçon','der Knabe'],
+      ['la fille','das Mädchen, die Tochter'],
+      ['les médias','die Medien'],
+      ['la BD, la bande dessinée','der Comic'],
+      ["l'équitation, faire de l'équitation",'das Reiten, reiten'],
+      ['les acrobaties, faire des acrobaties','die Akrobatik, Akrobatik machen'],
+      ['la grimpe','das Klettern'],
+      ['le tennis de table','das Tischtennis'],
+      ['le hockey sur glace','das Eishockey'],
+      ['la batterie','das Schlagzeug'],
+      ['le violon','die Geige, die Violine'],
+      ['le cirque','der Zirkus'],
+      ['la construction','der Modellbau'],
+      ['la pêche, pêcher','das Fischen, fischen'],
+      ['les échecs, jouer aux échecs','das Schachspiel, Schach spielen'],
+      ['le théâtre, jouer du théâtre','das Theater, Theater spielen'],
+      ['être avec mes potes','mit meinen Freunden sein'],
+      ['garder des enfants','Kinderhüten'],
+      ["j'aime beaucoup...",'ich liebe sehr ...'],
+      ['mon sport favori, c’est...','mein Lieblingssport ist ...'],
+      ['mes hobbies, ce sont...','meine Hobbys sind ...'],
+      ["détester, je déteste",'hassen, ich hasse']]},
+    {id:'u4',label:'Unité 4',title:'Unité 4 · Corps, aliments & alphabet',words:[
+      ['un ingrédient','eine Zutat'],
+      ['un ananas','eine Ananas'],
+      ['le raisin vert','die grüne Traube'],
+      ['le raisin bleu','die blaue Traube'],
+      ['la fraise','die Erdbeere'],
+      ['le champignon blanc','der weisse Champignon'],
+      ['la rondelle de concombre','die Gurkenscheibe'],
+      ['la carotte','die Karotte'],
+      ['la poire','die Birne'],
+      ["la feuille d'ananas",'das Ananasblatt'],
+      ['la tomate (cerise)','die (Kirsch-)Tomate'],
+      ['un peu de persil','ein wenig Petersilie'],
+      ['le visage','das Gesicht'],
+      ['une oreille','ein Ohr'],
+      ['les yeux','die Augen'],
+      ['les cheveux','die Haare'],
+      ['la tête','der Kopf'],
+      ['le nez','die Nase'],
+      ['la bouche','der Mund'],
+      ['la rondelle de citron','die Zitronenscheibe'],
+      ['Pour le nez, je prends une carotte.','Für die Nase nehme ich eine Karotte.'],
+      ["C'est quoi ?",'Was ist das?'],
+      ['la banane','die Banane'],
+      ['les nouilles','die Nudeln'],
+      ['Pique un raisin.','Spiesse eine Traube auf.'],
+      ['Fixe le raisin sur la poire.','Befestige die Traube an der Birne.'],
+      ["Coupe l'ananas en deux.",'Schneide die Ananas (halbiere sie).'],
+      ["Pose la fraise sur l'assiette.",'Stelle die Erdbeere auf den Teller.'],
+      ['Prends une poire pour le corps.','Nimm eine Birne für den Körper.'],
+      ['Tu coupes. Coupe.','Du schneidest. Schneide!'],
+      ['Vous coupez. Coupez.','Ihr schneidet. Schneidet!'],
+      ['un alphabet','ein Alphabet'],
+      ['la soupe','die Suppe'],
+      ['la lettre','der Buchstabe'],
+      ['la souris','die Maus'],
+      ['la voiture','das Auto'],
+      ['la chenille','die Raupe'],
+      ['le hérisson','der Igel'],
+      ['la demi-rondelle de concombre','die halbe Gurkenscheibe'],
+      ['la tige de ciboulette','der Schnittlauchhalm'],
+      ['le clou de girofle','die Gewürznelke'],
+      ['la groseille (rouge)','die Johannisbeere'],
+      ['le raisin sec','die Rosine (getrocknete Traube)'],
+      ['les parties du visage','die Gesichtsteile'],
+      ['le bouquet de brocoli','das Brokkoliröschen'],
+      ['le morceau de fromage','das Stück Käse'],
+      ['le morceau de pastèque','das Stück Wassermelone'],
+      ['Plante des cure-dents sur le dos.','Pflanze Zahnstocher in den Rücken ein.'],
+      ["Fixe le raisin à l'aide d'un cure-dent.",'Befestige die Traube mithilfe eines Zahnstochers.'],
+      ['la patte','die Pfote'],
+      ['Insère les feuilles dans la poire.','Stecke die Blätter in die Birne.'],
+      ['pour la queue','für den Schwanz'],
+      ['Enfile des raisins sur un fil de métal.','Ziehe Trauben auf einen Metallfaden auf.'],
+      ['Prends la pâte bleue.','Nimm die blaue Knete.'],
+      ['Forme une grande boule pour le corps.','Forme eine grosse Kugel für den Körper.'],
+      ['le pain','das Brot'],
+      ['la pomme','der Apfel'],
+      ['la pomme de terre','die Kartoffel']]}
+  ]}
+];
+
 /* Wörter aus dem gewählten Bereich (Teil/Unit oder übergreifend). */
-function vtPool(books,st){
+function vtPool(books,st,coreMarks){
+  coreMarks=coreMarks||{};
   const out=[];
   books.forEach(b=>{
     if(st.book&&st.book!=='all'&&b.id!==st.book)return;
     b.units.forEach(u=>{
       if(st.book&&st.book!=='all'&&st.unit&&st.unit!=='all'&&u.id!==st.unit)return;
-      u.words.forEach(w=>out.push({en:w[0],de:w[1],book:b.short,unit:u.label,key:b.id+'/'+u.id+'/'+w[0]}));
+      u.words.forEach(w=>{
+        const key=b.id+'/'+u.id+'/'+w[0];
+        out.push({en:w[0],de:w[1],core:!!coreMarks[key],book:b.short,unit:u.label,key:key});
+      });
     });
   });
   return out;
@@ -2548,14 +2803,22 @@ function vtPool(books,st){
    letzte inhaltstragende Wort, der Satzanfang bleibt stehen. */
 const VT_STOP=('the a an is are was were be to of in on at it its and or my your his her our their this that these '+
   'those i you he she we they do does can will as with for from by up not').split(' ');
-function vtCloze(e){
+/* Französische Füllwörter für den gleichen Zweck (vtCloze wählt sonst evtl.
+   ein zu kurzes Funktionswort am Satzende aus, z.B. bei "pour"/"avec"). */
+const VT_STOP_FR=('le la les un une des du de d au aux et ou à en ma ta sa mon ton son ce cet cette ces '+
+  'qui que quoi pour avec sur sous dans par sans est sont était étaient').split(' ');
+const VT_STOP_BY_LANG={'Englisch':VT_STOP,'Französisch':VT_STOP_FR};
+/* Sprachcode je Fremdsprache, für den Ausspracheknopf (ttsBtnHTML/ttsSpeak). */
+const TTS_LANG_BY_FOREIGN={'Englisch':'en','Französisch':'fr'};
+function vtCloze(e,stopWords){
+  stopWords=stopWords||VT_STOP;
   const en=e.en;
   if(/[(\/,]/.test(en)||en.indexOf('...')>=0)return null;
   const parts=en.split(/\s+/);
   if(parts.length<2)return null;
   for(let i=parts.length-1;i>0;i--){
-    const bare=parts[i].replace(/[^A-Za-z'-]/g,'');
-    if(bare.length<3||VT_STOP.indexOf(bare.toLowerCase())>=0)continue;
+    const bare=parts[i].replace(/[^\p{L}'-]/gu,'');
+    if(bare.length<3||stopWords.indexOf(bare.toLowerCase())>=0)continue;
     const gap=parts.slice();
     gap[i]=parts[i].replace(bare,'_____');
     return {sentence:gap.join(' '),answer:bare};
@@ -2565,6 +2828,8 @@ function vtCloze(e){
 
 function bookVocabTopic(cfg){
   const books=cfg.books, foreign=cfg.foreign||'Englisch';
+  const clozeStop=VT_STOP_BY_LANG[foreign]||VT_STOP;
+  const ttsLang=TTS_LANG_BY_FOREIGN[foreign]||'en';
   const bookOpts=books.map(b=>({v:b.id,l:b.label})).concat([{v:'all',l:'Alle Teile'}]);
   const unitOpts=st=>{
     const b=books.find(x=>x.id===st.book);
@@ -2580,7 +2845,7 @@ function bookVocabTopic(cfg){
     const all=vtPool(books,st);
     if(!all.length)return {key:'x',answer:'-',html:'<span class="w">Keine Wörter</span>',type:'text'};
     if(st.mode==='cloze'){
-      const cands=all.map(e=>({e:e,c:vtCloze(e)})).filter(x=>x.c);
+      const cands=all.map(e=>({e:e,c:vtCloze(e,clozeStop)})).filter(x=>x.c);
       if(cands.length){
         let p,tries=0;
         do{p=pick(cands);tries++;}while(cands.length>1&&p.e.key===last&&tries<25);
@@ -2597,7 +2862,7 @@ function bookVocabTopic(cfg){
     const label=dir==='fw'?(foreign+' → Deutsch'):('Deutsch → '+foreign);
     /* Der Lautsprecher darf nur erscheinen, wenn die angezeigte Seite bereits
        Englisch ist – sonst würde er die noch unbekannte Lösung verraten. */
-    const spk=(dir==='fw')?ttsBtnHTML(e.en):'';
+    const spk=(dir==='fw')?ttsBtnHTML(e.en,ttsLang):'';
     const t={key:e.key,answer:a,accept:vocabAccepts(a,q),display:altText(a,q),
       type:'text',placeholder:'Antwort eintippen',
       hint:e.book+' · '+e.unit,
@@ -2678,10 +2943,12 @@ function vtOverviewCard(host,st,scopeCtl,books,drawWords){
 
 function vtWordList(host,topic,books,foreign,scopeCtl){
   const st={};
+  const ttsLang=TTS_LANG_BY_FOREIGN[foreign]||'en';
+  let coreMarks=vtLoadCore(topic.id);
   vtOverviewCard(host,st,scopeCtl,books,()=>draw());
   const card=document.createElement('div');card.className='card';card.style.padding='clamp(20px,3vw,30px)';card.style.marginTop='16px';
   card.innerHTML=`<div class="eyebrow">Wortschatz</div>
-    <p class="lead" style="margin:6px 0 4px">Wähle Teil und Unit. Übergreifend lernen: «Alle Teile».</p>
+    <p class="lead" style="margin:6px 0 4px">Wähle Teil und Unit. Übergreifend lernen: «Alle Teile». Klicke auf ☆, um dir ein Wort als Kernwortschatz zu markieren – die Sterne bleiben gespeichert und kommen in den Karteikarten zuerst dran.</p>
     <div data-role="ctl"></div><div data-role="tbl"></div>`;
   host.appendChild(card);
   const draw=()=>{
@@ -2695,13 +2962,23 @@ function vtWordList(host,topic,books,foreign,scopeCtl){
     });
     card.querySelector('[data-role=tbl]').innerHTML=list.map(x=>
       `<h4 style="margin:20px 0 0;font-family:var(--round)">${x.b.label} · ${x.u.title||x.u.label}</h4>
-       <table class="listing"><tr><th>${foreign}</th><th>Deutsch</th></tr>`+
-       x.u.words.map(w=>`<tr><td class="b">${altText(w[0],w[1])} ${ttsBtnHTML(w[0])}</td><td>${altText(w[1],w[0])}</td></tr>`).join('')+'</table>').join('')
+       <table class="listing"><tr><th></th><th>${foreign}</th><th>Deutsch</th></tr>`+
+       x.u.words.map(w=>{
+         const key=x.b.id+'/'+x.u.id+'/'+w[0], on=!!coreMarks[key];
+         return `<tr class="${on?'core-row':''}"><td><button type="button" class="core-toggle" data-key="${ttsAttr(key)}" title="${on?'Kernwortschatz entfernen':'Als Kernwortschatz markieren'}" aria-label="Kernwortschatz">${on?'⭐':'☆'}</button></td><td class="b">${altText(w[0],w[1])} ${ttsBtnHTML(w[0],ttsLang)}</td><td>${altText(w[1],w[0])}</td></tr>`;
+       }).join('')+'</table>').join('')
       +`<p class="gen-note" style="margin-top:14px">${list.reduce((n,x)=>n+x.u.words.length,0)} Wörter im gewählten Bereich.</p>`;
   };
   renderControlsGeneric(card.querySelector('[data-role=ctl]'),st,scopeCtl,draw);
   card.querySelector('[data-role=tbl]').addEventListener('click',e=>{
-    const b=e.target.closest('[data-tts]');if(b)ttsSpeak(b.dataset.tts,b);
+    const b=e.target.closest('[data-tts]');if(b){ttsSpeak(b.dataset.tts,b,b.dataset.lang);return;}
+    const c=e.target.closest('.core-toggle');
+    if(c){
+      const k=c.dataset.key;
+      if(coreMarks[k])delete coreMarks[k];else coreMarks[k]=true;
+      vtSaveCore(topic.id,coreMarks);
+      draw();
+    }
   });
   draw();
 }
@@ -2712,6 +2989,14 @@ function vtWordList(host,topic,books,foreign,scopeCtl){
 function vtCardKey(topicId){return 'mstj_cards_'+slug(gs.name||'gast')+'_'+topicId;}
 function vtLoadCards(topicId){try{return JSON.parse(store.get(vtCardKey(topicId))||'{}');}catch(e){return {};}}
 function vtSaveCards(topicId,obj){store.set(vtCardKey(topicId),JSON.stringify(obj));}
+
+/* Kernwortschatz: keine Vorgabe aus den Daten – Lernende markieren selbst
+   in der Wortschatzliste (☆/⭐), pro Profil und Thema gespeichert. Wirkt
+   dort als Hervorhebung und in den Karteikarten als Tiebreak (kommt bei
+   gleicher Lernstufe zuerst dran). */
+function vtCoreKey(topicId){return 'mstj_core_'+slug(gs.name||'gast')+'_'+topicId;}
+function vtLoadCore(topicId){try{return JSON.parse(store.get(vtCoreKey(topicId))||'{}');}catch(e){return {};}}
+function vtSaveCore(topicId,obj){store.set(vtCoreKey(topicId),JSON.stringify(obj));}
 
 function vtFlashcards(host,topic,books,foreign,scopeCtl){
   const st={};
@@ -2724,7 +3009,8 @@ function vtFlashcards(host,topic,books,foreign,scopeCtl){
     <div class="fc-legend" data-role="legend"></div>`;
   host.appendChild(wrap);
   const q=x=>wrap.querySelector('[data-role='+x+']');
-  let queue=[],idx=0,flipped=false,levels=vtLoadCards(topic.id);
+  const ttsLang=TTS_LANG_BY_FOREIGN[foreign]||'en';
+  let queue=[],idx=0,flipped=false,levels=vtLoadCards(topic.id),coreMarks={};
 
   const dirCtl={type:'chips',key:'dir',label:'Zeigt zuerst:',default:'fw',options:[
     {v:'fw',l:foreign},{v:'bw',l:'Deutsch'}]};
@@ -2732,10 +3018,17 @@ function vtFlashcards(host,topic,books,foreign,scopeCtl){
     {v:'all',l:'Alle Wörter'},{v:'new',l:'Noch nicht sicher'}]};
 
   function build(){
-    let pool=vtPool(books,st);
+    /* Frisch laden statt einmalig cachen: Markierungen aus der
+       Wortschatzliste sollen wirken, sobald der Stapel neu gemischt wird
+       (Filterwechsel, «Neue Runde»), auch ohne die Themenansicht neu zu laden. */
+    coreMarks=vtLoadCore(topic.id);
+    let pool=vtPool(books,st,coreMarks);
     if(st.filter==='new'&&pool.some(e=>(levels[e.key]||0)<3))pool=pool.filter(e=>(levels[e.key]||0)<3);
-    if(!pool.length){pool=vtPool(books,st);}
-    queue=shuffle(pool.slice()).sort((a,b)=>(levels[a.key]||0)-(levels[b.key]||0));
+    if(!pool.length){pool=vtPool(books,st,coreMarks);}
+    queue=shuffle(pool.slice()).sort((a,b)=>{
+      const lv=(levels[a.key]||0)-(levels[b.key]||0);
+      return lv!==0?lv:(a.core?0:1)-(b.core?0:1);
+    });
     idx=0;flipped=false;render();
   }
   function render(){
@@ -2755,12 +3048,12 @@ function vtFlashcards(host,topic,books,foreign,scopeCtl){
     const front=altText(st.dir==='bw'?e.de:e.en,st.dir==='bw'?e.en:e.de),
           back =altText(st.dir==='bw'?e.en:e.de,st.dir==='bw'?e.de:e.en);
     q('pos').textContent='Karte '+(idx+1)+' von '+total;
-    q('scope').textContent=e.book+' · '+e.unit+'  ·  Stufe '+lv+'/4';
+    q('scope').textContent=(e.core?'⭐ ':'')+e.book+' · '+e.unit+'  ·  Stufe '+lv+'/4';
     /* Lautsprecher nur bei der Seite, die tatsächlich Englisch ist. */
     const frontIsEn=st.dir!=='bw', backIsEn=st.dir==='bw';
     q('card').innerHTML=`<span class="tagline">${st.dir==='bw'?'Deutsch':foreign}</span>
-      <span class="w-row"><span class="side">${front}</span>${frontIsEn?ttsBtnHTML(e.en):''}</span>`+
-      (flipped?`<span class="w-row"><span class="side back">${back}</span>${backIsEn?ttsBtnHTML(e.en):''}</span>`
+      <span class="w-row"><span class="side">${front}</span>${frontIsEn?ttsBtnHTML(e.en,ttsLang):''}</span>`+
+      (flipped?`<span class="w-row"><span class="side back">${back}</span>${backIsEn?ttsBtnHTML(e.en,ttsLang):''}</span>`
               :'<span class="flip-hint">Tippe auf die Karte zum Umdrehen</span>');
     q('bar').style.width=Math.round(idx/total*100)+'%';
     q('act').innerHTML='';
@@ -2784,7 +3077,7 @@ function vtFlashcards(host,topic,books,foreign,scopeCtl){
   }
   q('card').addEventListener('click',e=>{
     const b=e.target.closest('[data-tts]');
-    if(b){ttsSpeak(b.dataset.tts,b);return;}
+    if(b){ttsSpeak(b.dataset.tts,b,b.dataset.lang);return;}
     if(idx<queue.length){flipped=!flipped;render();}
   });
   renderControlsGeneric(q('ctl'),st,scopeCtl.concat([dirCtl,filtCtl]),build);
@@ -2811,6 +3104,7 @@ function vtExam(host,topic,books,foreign,scopeCtl,cfg){
     <div class="card" data-role="stage" style="padding:clamp(20px,3vw,30px);margin-top:16px"></div>`;
   host.appendChild(wrap);
   const q=x=>wrap.querySelector('[data-role='+x+']');
+  const ttsLang=TTS_LANG_BY_FOREIGN[foreign]||'en';
   let items=[],idx=0,answers=[];
 
   const dirCtl={type:'chips',key:'dir',label:'Richtung:',default:'fw',options:[
@@ -2840,7 +3134,7 @@ function vtExam(host,topic,books,foreign,scopeCtl,cfg){
     q('stage').innerHTML=`
       <div class="ex-head"><span>Frage ${idx+1} von ${items.length}</span><span>${scopeText()}</span></div>
       <div class="ex-sub">${it.dir==='fw'?foreign+' → Deutsch':'Deutsch → '+foreign}</div>
-      <div class="ex-q"><span class="w-row">${it.q}${it.dir==='fw'?ttsBtnHTML(it.e.en):''}</span></div>
+      <div class="ex-q"><span class="w-row">${it.q}${it.dir==='fw'?ttsBtnHTML(it.e.en,ttsLang):''}</span></div>
       <div class="ex-in"><input data-role="ans" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Antwort eintippen"></div>
       <div class="gen-note" style="text-align:center">Es gibt erst am Schluss eine Rückmeldung.</div>
       <div class="arena-actions" style="margin-top:14px">
@@ -2857,7 +3151,7 @@ function vtExam(host,topic,books,foreign,scopeCtl,cfg){
     q('next').addEventListener('click',go);
     q('stop').addEventListener('click',idle);
     const tb=q('stage').querySelector('[data-tts]');
-    if(tb)tb.addEventListener('click',ev=>{ev.stopPropagation();ttsSpeak(tb.dataset.tts,tb);});
+    if(tb)tb.addEventListener('click',ev=>{ev.stopPropagation();ttsSpeak(tb.dataset.tts,tb,tb.dataset.lang);});
     inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
   }
   function done(){
@@ -2973,6 +3267,13 @@ TOPICS.push(bookVocabTopic({
   foreign:'Englisch',books:YW_BOOKS,
   short:'Young World 1–4, nach Units geordnet – Karteikarten, Üben, Anwenden und Prüfung.',
   lead:'Wähle Teil und Unit oder übe mit «Alle Teile» übergreifend. Karteikarten zum Einprägen, Üben zum Festigen, Lückensätze zum Anwenden – und im Reiter «Prüfung» ein Vokabeltest mit frei wählbarer Wortzahl.'
+}));
+
+TOPICS.push(bookVocabTopic({
+  id:'fr-vocab',subject:'franz',emoji:'📘',title:'Vocabulaire · Dis donc! 5',color:'#7A4DA8',
+  foreign:'Französisch',books:FR_BOOKS,
+  short:'Dis donc! 5, nach Unités geordnet – Karteikarten, Üben, Anwenden und Prüfung.',
+  lead:'Wähle die Unité oder übe mit «Alle Teile» übergreifend. Im Wortschatz kannst du dir Wörter mit ☆ selbst als Kernwortschatz markieren. Karteikarten zum Einprägen, Üben zum Festigen, Lückensätze zum Anwenden – und im Reiter «Prüfung» ein Vokabeltest mit frei wählbarer Wortzahl.'
 }));
 
 TOPICS.push(vocabTopic({
